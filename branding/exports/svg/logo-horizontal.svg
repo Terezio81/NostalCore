@@ -1,0 +1,31 @@
+<svg width="1200" height="400" viewBox="0 0 1200 400" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <style>
+      @import url('https://fonts.googleapis.com/css2?family=Exo+2:wght@600&amp;family=Inter:wght@500&amp;display=swap');
+      .text-nostal { font-family: 'Exo 2', sans-serif; font-weight: 600; fill: #E6E6EA; }
+      .text-core { font-family: 'Exo 2', sans-serif; font-weight: 600; fill: #9D7CFF; }
+      .text-sub { font-family: 'Inter', sans-serif; font-weight: 500; fill: #888888; letter-spacing: 2px; }
+    </style>
+    <linearGradient id="grad1" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#7B5CFF;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#C77DFF;stop-opacity:1" />
+    </linearGradient>
+  </defs>
+  
+  <rect width="1200" height="400" fill="#0D0D14" />
+
+  <!-- Ícone N -->
+  <g transform="translate(80, 80)">
+    <rect x="0" y="0" width="180" height="180" rx="30" fill="none" stroke="url(#grad1)" stroke-width="12" stroke-linecap="round" />
+    <path d="M50 140 V40 L130 140 V40" stroke="url(#grad1)" stroke-width="24" fill="none" stroke-linejoin="round" stroke-linecap="round" />
+    <line x1="180" y1="40" x2="180" y2="60" stroke="#0D0D14" stroke-width="15" />
+  </g>
+
+  <!-- Texto -->
+  <text x="320" y="200" font-size="110">
+    <tspan class="text-nostal">Nostal</tspan><tspan class="text-core">Core</tspan>
+  </text>
+  
+  <!-- Slogan -->
+  <text x="320" y="260" font-size="22" class="text-sub">NÃO VIVA NO PASSADO. APROVEITE-O.</text>
+</svg>

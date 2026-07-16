@@ -1,0 +1,29 @@
+type ImportedGame = {
+  title: string;
+  fileName: string;
+  filePath: string;
+  extension: string;
+  consoleName: string;
+};
+
+type SelectGameResult =
+  | {
+      canceled: true;
+      game?: never;
+    }
+  | {
+      canceled: false;
+      game: ImportedGame;
+    };
+
+declare global {
+  interface Window {
+    nostalcore: {
+      platform: string;
+      appVersion: string;
+      selectGame: () => Promise<SelectGameResult>;
+    };
+  }
+}
+
+export {};

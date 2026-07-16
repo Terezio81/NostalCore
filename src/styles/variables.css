@@ -1,0 +1,39 @@
+:root {
+
+  /* ===== COLORS ===== */
+
+  --background: #121212;
+
+  --sidebar: #181818;
+
+  --card: #202020;
+
+  --hover: #2B2B2B;
+
+  --border: #2F2F2F;
+
+  --primary: #5A4DFF;
+
+  --primary-light: #7B6DFF;
+
+  --accent: #F5B841;
+
+  --success: #2ECC71;
+
+  --danger: #E74C3C;
+
+  --text: #FFFFFF;
+
+  --text-secondary: #A0A0A0;
+
+  /* ===== BORDER ===== */
+
+  --radius: 14px;
+
+  /* ===== SHADOW ===== */
+
+  --shadow:
+
+  0 8px 24px rgba(0,0,0,.35);
+
+}

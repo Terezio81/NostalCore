@@ -1,0 +1,69 @@
+type ImportedGame = {
+  title: string;
+  fileName: string;
+  filePath: string;
+  extension: string;
+  consoleName: string;
+};
+
+type LibraryGame = ImportedGame & {
+  id: string;
+  cover: string;
+  banner: string;
+  description: string;
+  favorite: boolean;
+  playTimeMinutes: number;
+  lastPlayedAt: string | null;
+  importedAt: string;
+};
+
+type SelectGameResult =
+  | {
+      canceled: true;
+      game?: never;
+    }
+  | {
+      canceled: false;
+      game: ImportedGame;
+    };
+
+type AddGameResult =
+  | {
+      success: true;
+      game: LibraryGame;
+    }
+  | {
+      success: false;
+      error: string;
+    };
+
+type ListGamesResult =
+  | {
+      success: true;
+      games: LibraryGame[];
+      error?: never;
+    }
+  | {
+      success: false;
+      games: LibraryGame[];
+      error: string;
+    };
+
+declare global {
+  interface Window {
+    nostalcore: {
+      platform: string;
+      appVersion: string;
+
+      selectGame: () => Promise<SelectGameResult>;
+
+      addGame: (
+        game: ImportedGame,
+      ) => Promise<AddGameResult>;
+
+      listGames: () => Promise<ListGamesResult>;
+    };
+  }
+}
+
+export {};
