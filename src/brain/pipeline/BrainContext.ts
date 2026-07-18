@@ -15,6 +15,9 @@ export type BrainGame = {
   genres: string[];
   players: number | null;
   description: string;
+
+  cover: string;
+  banner: string;
 };
 
 export type BrainContext = {

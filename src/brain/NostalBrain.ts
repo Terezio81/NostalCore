@@ -3,8 +3,10 @@ import { CleanNameTask } from "./tasks/CleanNameTask";
 import { DetectRegionTask } from "./tasks/DetectRegionTask";
 import { DetectLanguagesTask } from "./tasks/DetectLanguagesTask";
 import { DetectRevisionTask } from "./tasks/DetectRevisionTask";
-import { FakeProvider } from "./providers/FakeProvider";
 import { MetadataTask } from "./tasks/MetadataTask";
+import { FakeProvider } from "./providers/FakeProvider";
+import { FallbackProvider } from "./providers/FallbackProvider";
+import { RawgProvider } from "./providers/RawgProvider";
 
 import type {
   BrainContext,
@@ -17,7 +19,10 @@ type BrainProgressCallback = (
 
 class NostalBrain {
 private readonly metadataProvider =
-  new FakeProvider();
+  new FallbackProvider([
+    new RawgProvider(),
+    new FakeProvider(),
+  ]);
 
   private readonly pipeline = new BrainPipeline([
   new DetectRegionTask(),

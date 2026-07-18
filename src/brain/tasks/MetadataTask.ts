@@ -32,5 +32,7 @@ export class MetadataTask extends BrainTask {
     context.game.genres = [...metadata.genres];
     context.game.players = metadata.players;
     context.game.description = metadata.description;
+    context.game.cover = metadata.cover;
+    context.game.banner = metadata.banner;
   }
 }

@@ -1,19 +1,31 @@
 import {
   FileQuestion,
   Gamepad2,
+  Heart,
   Library as LibraryIcon,
+  Play,
   Search,
 } from "lucide-react";
 
 import { useEffect, useState } from "react";
 import type { LibraryGame } from "../../types/Game";
 import "./Library.css";
+import {
+  useNavigate,
+} from "react-router-dom";
 
 export default function Library() {
   const [games, setGames] = useState<LibraryGame[]>([]);
   const [search, setSearch] = useState("");
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState("");
+  const navigate = useNavigate();
+
+  const [selectedGameIds, setSelectedGameIds] =
+  useState<string[]>([]);
+
+const [isDeleting, setIsDeleting] =
+  useState(false);
 
   async function loadLibrary() {
     try {
@@ -39,6 +51,7 @@ export default function Library() {
       setIsLoading(false);
     }
   }
+  
   async function playGame(game: LibraryGame) {
   try {
     setError("");
@@ -55,7 +68,143 @@ export default function Library() {
     setError("Não foi possível iniciar o jogo.");
   }
 }
-  
+  function toggleGameSelection(gameId: string) {
+  setSelectedGameIds((currentIds) => {
+    if (currentIds.includes(gameId)) {
+      return currentIds.filter(
+        (selectedId) => selectedId !== gameId,
+      );
+    }
+
+    return [...currentIds, gameId];
+  });
+}
+
+function selectAllVisibleGames() {
+  const visibleGameIds = filteredGames.map(
+    (game) => game.id,
+  );
+
+  const allVisibleAreSelected =
+    visibleGameIds.length > 0 &&
+    visibleGameIds.every((gameId) =>
+      selectedGameIds.includes(gameId),
+    );
+
+  if (allVisibleAreSelected) {
+    setSelectedGameIds((currentIds) =>
+      currentIds.filter(
+        (gameId) =>
+          !visibleGameIds.includes(gameId),
+      ),
+    );
+
+    return;
+  }
+
+  setSelectedGameIds((currentIds) => [
+    ...new Set([
+      ...currentIds,
+      ...visibleGameIds,
+    ]),
+  ]);
+}
+
+async function handleDeleteSelectedGames() {
+  if (selectedGameIds.length === 0) {
+    return;
+  }
+
+  const confirmed = window.confirm(
+    `Remover ${selectedGameIds.length} ${
+      selectedGameIds.length === 1
+        ? "jogo"
+        : "jogos"
+    } da biblioteca?\n\nOs arquivos originais não serão apagados.`,
+  );
+
+  if (!confirmed) {
+    return;
+  }
+
+  try {
+    setIsDeleting(true);
+    setError("");
+
+    const result =
+      await window.nostalcore.deleteGames(
+        selectedGameIds,
+      );
+
+    if (!result.success) {
+      setError(result.error);
+      return;
+    }
+
+    setSelectedGameIds([]);
+    await loadLibrary();
+  } catch (error) {
+    console.error(
+      "Erro ao excluir jogos:",
+      error,
+    );
+
+    setError(
+      "Não foi possível excluir os jogos selecionados.",
+    );
+  } finally {
+    setIsDeleting(false);
+  }
+}
+
+async function handleClearLibrary() {
+  if (games.length === 0) {
+    return;
+  }
+
+  const confirmed = window.confirm(
+    `Remover todos os ${games.length} jogos da biblioteca?\n\nOs arquivos originais não serão apagados.`,
+  );
+
+  if (!confirmed) {
+    return;
+  }
+
+  const finalConfirmation = window.confirm(
+    "Esta ação limpará toda a biblioteca. Deseja realmente continuar?",
+  );
+
+  if (!finalConfirmation) {
+    return;
+  }
+
+  try {
+    setIsDeleting(true);
+    setError("");
+
+    const result =
+      await window.nostalcore.clearLibrary();
+
+    if (!result.success) {
+      setError(result.error);
+      return;
+    }
+
+    setSelectedGameIds([]);
+    await loadLibrary();
+  } catch (error) {
+    console.error(
+      "Erro ao limpar biblioteca:",
+      error,
+    );
+
+    setError(
+      "Não foi possível limpar a biblioteca.",
+    );
+  } finally {
+    setIsDeleting(false);
+  }
+}
 
   useEffect(() => {
     loadLibrary();
@@ -89,6 +238,61 @@ export default function Library() {
   return (
     <div className="library-page">
       <header className="library-page__header">
+        <div className="library-toolbar">
+  <div className="library-toolbar__selection">
+    <button
+      type="button"
+      className="library-toolbar__secondary"
+      disabled={
+        isDeleting ||
+        filteredGames.length === 0
+      }
+      onClick={selectAllVisibleGames}
+    >
+      {filteredGames.length > 0 &&
+      filteredGames.every((game) =>
+        selectedGameIds.includes(game.id),
+      )
+        ? "Desmarcar todos"
+        : "Selecionar todos"}
+    </button>
+
+    <span>
+      {selectedGameIds.length}{" "}
+      {selectedGameIds.length === 1
+        ? "selecionado"
+        : "selecionados"}
+    </span>
+  </div>
+
+  <div className="library-toolbar__actions">
+    <button
+      type="button"
+      className="library-toolbar__delete"
+      disabled={
+        isDeleting ||
+        selectedGameIds.length === 0
+      }
+      onClick={handleDeleteSelectedGames}
+    >
+      {isDeleting
+        ? "Excluindo..."
+        : "Excluir selecionados"}
+    </button>
+
+    <button
+      type="button"
+      className="library-toolbar__clear"
+      disabled={
+        isDeleting ||
+        games.length === 0
+      }
+      onClick={handleClearLibrary}
+    >
+      Limpar biblioteca
+    </button>
+  </div>
+</div>
         <div>
           <span className="library-page__eyebrow">
             Sua coleção
@@ -168,93 +372,102 @@ export default function Library() {
         <section className="library-page__grid">
           {filteredGames.map((game) => (
             <article
-              className="library-game"
-              key={game.id}
-            >
+  className={`library-game ${
+    selectedGameIds.includes(game.id)
+      ? "library-game--selected"
+      : ""
+  }`}
+  key={game.id}
+  role="button"
+  tabIndex={0}
+  onClick={() =>
+    navigate(`/jogo/${game.id}`)
+  }
+  onKeyDown={(event) => {
+    if (
+      event.key === "Enter" ||
+      event.key === " "
+    ) {
+      navigate(`/jogo/${game.id}`);
+    }
+  }}
+>
+  <label
+  className="library-game__selector"
+  title="Selecionar jogo"
+  onClick={(event) =>
+  event.stopPropagation()
+}
+>
+  <input
+    type="checkbox"
+    checked={selectedGameIds.includes(
+      game.id,
+    )}
+    onClick={(event) =>
+  event.stopPropagation()
+}
+    onChange={() =>
+      toggleGameSelection(game.id)
+    }
+  />
+
+  <span aria-hidden="true" />
+</label>
               <div className="library-game__cover">
-                {game.cover ? (
-                  <img
-                    src={game.cover}
-                    alt={`Capa de ${game.title}`}
-                  />
-                ) : (
-                  <Gamepad2 size={46} />
-                )}
-              </div>
+  {game.cover ? (
+    <img
+      src={game.cover}
+      alt={`Imagem de ${game.title}`}
+      loading="lazy"
+      onError={(event) => {
+        event.currentTarget.style.display =
+          "none";
+      }}
+    />
+  ) : (
+    <Gamepad2 size={46} />
+  )}
+</div>
 
               <div className="library-game__information">
-  <h2>{game.title}</h2>
+  <div className="library-game__heading">
+    <div>
+      <h2>{game.title}</h2>
 
-  <span>{game.consoleName}</span>
+      <span>
+        {game.consoleName}
 
-  {game.region && (
-  <small className="library-game__region">
-    Região: {game.region}
-    {game.languages &&
-  game.languages.length > 0 && (
-    <small className="library-game__languages">
-      Idiomas: {game.languages.join(", ")}
-    </small>
-  )}
-  {game.revision && (
-  <small className="library-game__revision">
-    Revisão: {game.revision}
-  </small>
-)}
-{game.releaseYear && (
-  <small className="library-game__metadata">
-    Ano: {game.releaseYear}
-  </small>
-)}
+        {game.releaseYear
+          ? ` • ${game.releaseYear}`
+          : ""}
+      </span>
+    </div>
 
-{game.developer && (
-  <small className="library-game__metadata">
-    Desenvolvedora: {game.developer}
-  </small>
-)}
-
-{game.publisher && (
-  <small className="library-game__metadata">
-    Publicadora: {game.publisher}
-  </small>
-)}
-
-{game.genres && game.genres.length > 0 && (
-  <small className="library-game__metadata">
-    Gêneros: {game.genres.join(", ")}
-  </small>
-)}
-
-{game.players && (
-  <small className="library-game__metadata">
-    Jogadores: {game.players}
-  </small>
-)}
-  </small>
-)}
-
-  <small>{game.extension}</small>
-
-  {game.lastPlayedAt && (
-  <small className="library-game__last-played">
-    Última vez:{" "}
-    {new Date(game.lastPlayedAt).toLocaleString("pt-BR")}
-  </small>
-)}
-
-{game.playCount > 0 && (
-  <small className="library-game__play-count">
-    Aberto {game.playCount}{" "}
-    {game.playCount === 1 ? "vez" : "vezes"}
-  </small>
-)}
+    {game.favorite && (
+      <Heart
+        className="library-game__favorite-icon"
+        size={18}
+        fill="currentColor"
+        aria-label="Jogo favoritado"
+      />
+    )}
+  </div>
 
   <button
-    className="play-button"
     type="button"
-    onClick={() => playGame(game)}
+    className="library-game__play"
+    onClick={(event) => {
+      event.stopPropagation();
+      playGame(game);
+    }}
   >
-    ▶ Jogar
+    <Play
+      size={16}
+      fill="currentColor"
+    />
+
+    Jogar
   </button>
 </div>
             </article>

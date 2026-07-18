@@ -3,6 +3,7 @@ import { useState } from "react";
 import { nostalBrain } from "../../brain/NostalBrain";
 import "./ImportGame.css";
 
+
 type ImportedGame = {
   title: string;
   fileName: string;
@@ -18,6 +19,8 @@ export default function ImportGame() {
   const [successMessage, setSuccessMessage] = useState("");
   const [brainStatus, setBrainStatus] = useState("");
 
+
+  
   async function handleImportGame() {
   try {
     setIsImporting(true);
@@ -48,6 +51,9 @@ export default function ImportGame() {
    genres: [],
    players: null,
     description: "",
+
+    cover: "",
+    banner: "",
   },
   (context) => {
     setBrainStatus(
@@ -91,6 +97,7 @@ export default function ImportGame() {
     setIsImporting(false);
   }
 }
+
 
   function handleClearGame() {
     setGame(null);

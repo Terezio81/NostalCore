@@ -1,112 +1,467 @@
 import {
   Clock3,
   Gamepad2,
+  Heart,
   Library,
   Play,
   Search,
   Star,
 } from "lucide-react";
 
-import ImportGame from "../../components/ImportGame/ImportGame";
+import {
+  useEffect,
+  useMemo,
+  useState,
+} from "react";
 
-import GameCard from "../../components/GameCard/GameCard";
+import { useNavigate } from "react-router-dom";
+
+import ImportGame from "../../components/ImportGame/ImportGame";
+import type { LibraryGame } from "../../types/Game";
 
 import "./Home.css";
 
+function formatPlayTime(minutes: number): string {
+  if (!minutes || minutes <= 0) {
+    return "Ainda não jogado";
+  }
 
+  const hours = Math.floor(minutes / 60);
+  const remainingMinutes = minutes % 60;
 
-const recentGames = [
-  {
-    id: 1,
-    title: "Crash Adventure",
-    consoleName: "PlayStation",
-    year: 1996,
-    image: "/covers/crash.jpg",
-    favorite: true,
-  },
-  {
-    id: 2,
-    title: "Kart Legends",
-    consoleName: "Nintendo 64",
-    year: 1996,
-    image: "/covers/mario.jpg",
-  },
-  {
-    id: 3,
-    title: "Blue Speed",
-    consoleName: "Mega Drive",
-    year: 1991,
-    image: "/covers/sonic.jpg",
-  },
-  {
-    id: 4,
-    title: "Legendary Quest",
-    consoleName: "Super Nintendo",
-    year: 1991,
-    image: "/covers/zelda.jpg",
-    favorite: true,
-  },
-];
+  if (hours === 0) {
+    return `${remainingMinutes} min jogados`;
+  }
+
+  if (remainingMinutes === 0) {
+    return `${hours}h jogadas`;
+  }
+
+  return `${hours}h ${remainingMinutes}min jogados`;
+}
+
+function formatLastPlayed(
+  lastPlayedAt: string | null,
+): string {
+  if (!lastPlayedAt) {
+    return "Você ainda não iniciou este jogo.";
+  }
+
+  const date = new Date(lastPlayedAt);
+
+  if (Number.isNaN(date.getTime())) {
+    return "Última sessão registrada.";
+  }
+
+  return `Última sessão em ${date.toLocaleDateString(
+    "pt-BR",
+    {
+      day: "2-digit",
+      month: "2-digit",
+      year: "numeric",
+    },
+  )}`;
+}
 
 export default function Home() {
+  const navigate = useNavigate();
+
+  const [games, setGames] =
+    useState<LibraryGame[]>([]);
+
+  const [search, setSearch] = useState("");
+  const [isLoading, setIsLoading] =
+    useState(true);
+
+  const [isLaunching, setIsLaunching] =
+    useState(false);
+
+  const [error, setError] = useState("");
+
+  async function loadLibrary() {
+    try {
+      setIsLoading(true);
+      setError("");
+
+      const result =
+        await window.nostalcore.listGames();
+
+      if (!result.success) {
+        setError(
+          result.error ??
+            "Não foi possível carregar a biblioteca.",
+        );
+
+        return;
+      }
+
+      setGames(result.games);
+    } catch (error) {
+      console.error(
+        "Erro ao carregar a Home:",
+        error,
+      );
+
+      setError(
+        "Não foi possível carregar os dados da biblioteca.",
+      );
+    } finally {
+      setIsLoading(false);
+    }
+  }
+
+  useEffect(() => {
+    loadLibrary();
+
+    function handleLibraryUpdated() {
+      loadLibrary();
+    }
+
+    window.addEventListener(
+      "nostalcore:library-updated",
+      handleLibraryUpdated,
+    );
+
+    return () => {
+      window.removeEventListener(
+        "nostalcore:library-updated",
+        handleLibraryUpdated,
+      );
+    };
+  }, []);
+
+  const uniqueConsoleCount = useMemo(() => {
+    return new Set(
+      games
+        .map((game) => game.consoleName)
+        .filter(Boolean),
+    ).size;
+  }, [games]);
+
+  const favoriteCount = useMemo(() => {
+    return games.filter(
+      (game) => game.favorite,
+    ).length;
+  }, [games]);
+
+  const continueGame = useMemo(() => {
+    return [...games]
+      .filter((game) => game.lastPlayedAt)
+      .sort((first, second) => {
+        const firstTime = new Date(
+          first.lastPlayedAt ?? 0,
+        ).getTime();
+
+        const secondTime = new Date(
+          second.lastPlayedAt ?? 0,
+        ).getTime();
+
+        return secondTime - firstTime;
+      })[0] ?? null;
+  }, [games]);
+
+  const recentGames = useMemo(() => {
+    return [...games]
+      .sort((first, second) => {
+        const firstTime = new Date(
+          first.importedAt,
+        ).getTime();
+
+        const secondTime = new Date(
+          second.importedAt,
+        ).getTime();
+
+        return secondTime - firstTime;
+      })
+      .slice(0, 4);
+  }, [games]);
+
+  const searchResults = useMemo(() => {
+    const normalizedSearch =
+      search.trim().toLowerCase();
+
+    if (!normalizedSearch) {
+      return [];
+    }
+
+    return games
+      .filter((game) => {
+        return (
+          game.title
+            .toLowerCase()
+            .includes(normalizedSearch) ||
+          game.consoleName
+            .toLowerCase()
+            .includes(normalizedSearch)
+        );
+      })
+      .slice(0, 6);
+  }, [games, search]);
+
+  async function handlePlayGame(
+    game: LibraryGame,
+  ) {
+    if (isLaunching) {
+      return;
+    }
+
+    try {
+      setIsLaunching(true);
+      setError("");
+
+      const result =
+        await window.nostalcore.launchGame(
+          game.id,
+        );
+
+      if (!result.success) {
+        setError(
+          result.error ??
+            "Não foi possível iniciar o jogo.",
+        );
+
+        return;
+      }
+
+      await loadLibrary();
+
+      window.dispatchEvent(
+        new CustomEvent(
+          "nostalcore:library-updated",
+        ),
+      );
+    } catch (error) {
+      console.error(
+        "Erro ao iniciar jogo pela Home:",
+        error,
+      );
+
+      setError(
+        "Não foi possível iniciar o jogo.",
+      );
+    } finally {
+      setIsLaunching(false);
+    }
+  }
+
+  if (isLoading) {
+    return (
+      <main className="home-page home-page--message">
+        <Gamepad2 size={44} />
+
+        <h1>Preparando sua coleção...</h1>
+
+        <p>
+          O NostalCore está carregando seus
+          jogos.
+        </p>
+      </main>
+    );
+  }
+
   return (
-    <div className="home">
-      <header className="home__header">
+    <main className="home-page">
+      <header className="home-page__header">
         <div>
-          <span className="home__eyebrow">Sua coleção retrô</span>
+          <span className="home-page__eyebrow">
+            Sua coleção retrô
+          </span>
 
           <h1>Boa noite, Matheus.</h1>
 
-          <p>Pronto para aproveitar mais um clássico?</p>
+          <p>
+            {games.length > 0
+              ? "Pronto para aproveitar mais um clássico?"
+              : "Importe seu primeiro jogo e comece sua coleção."}
+          </p>
         </div>
 
-        <label className="home__search">
+        <div className="home-search">
           <Search size={19} />
 
           <input
             type="search"
+            value={search}
             placeholder="Pesquisar jogos..."
-            aria-label="Pesquisar jogos"
+            onChange={(event) =>
+              setSearch(event.target.value)
+            }
           />
-        </label>
+
+          {search.trim() &&
+            searchResults.length > 0 && (
+              <div className="home-search__results">
+                {searchResults.map((game) => (
+                  <button
+                    type="button"
+                    key={game.id}
+                    onClick={() =>
+                      navigate(
+                        `/jogo/${game.id}`,
+                      )
+                    }
+                  >
+                    <div>
+                      {game.cover ? (
+                        <img
+                          src={game.cover}
+                          alt=""
+                        />
+                      ) : (
+                        <Gamepad2 size={20} />
+                      )}
+                    </div>
+
+                    <span>
+                      <strong>
+                        {game.title}
+                      </strong>
+
+                      <small>
+                        {game.consoleName}
+                      </small>
+                    </span>
+                  </button>
+                ))}
+              </div>
+            )}
+
+          {search.trim() &&
+            searchResults.length === 0 && (
+              <div className="home-search__empty">
+                Nenhum jogo encontrado.
+              </div>
+            )}
+        </div>
       </header>
+
       <ImportGame />
 
-      <section className="continue-playing">
-        <div className="continue-playing__overlay" />
+      {error && (
+        <div className="home-page__error">
+          {error}
+        </div>
+      )}
 
-        <div className="continue-playing__content">
-          <span className="continue-playing__label">
-            <Clock3 size={17} />
-            Continue jogando
-          </span>
+      {continueGame ? (
+        <section
+          className="home-continue"
+          style={
+            continueGame.banner ||
+            continueGame.cover
+              ? {
+                  backgroundImage: `
+                    linear-gradient(
+                      90deg,
+                      rgba(10, 10, 13, 0.98) 0%,
+                      rgba(10, 10, 13, 0.76) 48%,
+                      rgba(10, 10, 13, 0.22) 100%
+                    ),
+                    url("${
+                      continueGame.banner ||
+                      continueGame.cover
+                    }")
+                  `,
+                }
+              : undefined
+          }
+        >
+          <div className="home-continue__content">
+            <span>
+              <Clock3 size={16} />
+              Continue jogando
+            </span>
 
-          <h2>Crash Adventure</h2>
+            <h2>{continueGame.title}</h2>
 
-          <p>
-            Sua última sessão foi ontem. O progresso salvo está pronto para
-            continuar.
-          </p>
+            <p>
+              {formatLastPlayed(
+                continueGame.lastPlayedAt,
+              )}
+            </p>
 
-          <div className="continue-playing__details">
-            <span>PlayStation</span>
-            <span>2h 46min jogados</span>
+            <div className="home-continue__tags">
+              <span>
+                {continueGame.consoleName}
+              </span>
+
+              <span>
+                {formatPlayTime(
+                  continueGame.playTimeMinutes,
+                )}
+              </span>
+            </div>
+
+            <div className="home-continue__actions">
+              <button
+                type="button"
+                disabled={isLaunching}
+                onClick={() =>
+                  handlePlayGame(continueGame)
+                }
+              >
+                <Play
+                  size={18}
+                  fill="currentColor"
+                />
+
+                {isLaunching
+                  ? "Abrindo..."
+                  : "Continuar"}
+              </button>
+
+              <button
+                type="button"
+                className="home-continue__details"
+                onClick={() =>
+                  navigate(
+                    `/jogo/${continueGame.id}`,
+                  )
+                }
+              >
+                Ver detalhes
+              </button>
+            </div>
+          </div>
+        </section>
+      ) : (
+        <section className="home-continue home-continue--empty">
+          <Gamepad2 size={42} />
+
+          <div>
+            <span>Continue jogando</span>
+
+            <h2>Sua próxima aventura começa aqui</h2>
+
+            <p>
+              Abra um jogo da Biblioteca e ele
+              aparecerá neste espaço.
+            </p>
           </div>
 
-          <button type="button">
-            <Play size={19} fill="currentColor" />
-            Continuar
+          <button
+            type="button"
+            onClick={() =>
+              navigate("/biblioteca")
+            }
+          >
+            Ver biblioteca
           </button>
-        </div>
-      </section>
+        </section>
+      )}
 
-      <section className="home__statistics">
+      <section className="home-stats">
         <article>
           <Library size={22} />
 
           <div>
-            <strong>24</strong>
-            <span>Jogos na biblioteca</span>
+            <strong>{games.length}</strong>
+
+            <span>
+              {games.length === 1
+                ? "Jogo na biblioteca"
+                : "Jogos na biblioteca"}
+            </span>
           </div>
         </article>
 
@@ -114,8 +469,15 @@ export default function Home() {
           <Gamepad2 size={22} />
 
           <div>
-            <strong>5</strong>
-            <span>Consoles cadastrados</span>
+            <strong>
+              {uniqueConsoleCount}
+            </strong>
+
+            <span>
+              {uniqueConsoleCount === 1
+                ? "Console cadastrado"
+                : "Consoles cadastrados"}
+            </span>
           </div>
         </article>
 
@@ -123,35 +485,128 @@ export default function Home() {
           <Star size={22} />
 
           <div>
-            <strong>8</strong>
-            <span>Jogos favoritos</span>
+            <strong>{favoriteCount}</strong>
+
+            <span>
+              {favoriteCount === 1
+                ? "Jogo favorito"
+                : "Jogos favoritos"}
+            </span>
           </div>
         </article>
       </section>
 
-      <section className="home__section">
-        <div className="home__section-header">
+      <section className="home-recent">
+        <header>
           <div>
-            <span>Biblioteca</span>
-            <h2>Adicionados recentemente</h2>
+            <span className="home-page__eyebrow">
+              Biblioteca
+            </span>
+
+            <h2>
+              Adicionados recentemente
+            </h2>
           </div>
 
-          <button type="button">Ver todos</button>
-        </div>
+          {games.length > 4 && (
+            <button
+              type="button"
+              onClick={() =>
+                navigate("/biblioteca")
+              }
+            >
+              Ver todos
+            </button>
+          )}
+        </header>
 
-        <div className="home__games">
-          {recentGames.map((game) => (
-            <GameCard
-              key={game.id}
-              title={game.title}
-              consoleName={game.consoleName}
-              year={game.year}
-              image={game.image}
-              favorite={game.favorite}
-            />
-          ))}
-        </div>
+        {recentGames.length === 0 ? (
+          <div className="home-recent__empty">
+            <Gamepad2 size={38} />
+
+            <h3>
+              Sua biblioteca está vazia
+            </h3>
+
+            <p>
+              Use o botão de importação acima
+              para adicionar seu primeiro jogo.
+            </p>
+          </div>
+        ) : (
+          <div className="home-recent__grid">
+            {recentGames.map((game) => (
+              <article
+                className="home-game"
+                key={game.id}
+                role="button"
+                tabIndex={0}
+                onClick={() =>
+                  navigate(
+                    `/jogo/${game.id}`,
+                  )
+                }
+                onKeyDown={(event) => {
+                  if (
+                    event.key === "Enter" ||
+                    event.key === " "
+                  ) {
+                    navigate(
+                      `/jogo/${game.id}`,
+                    );
+                  }
+                }}
+              >
+                <div className="home-game__cover">
+                  {game.cover ? (
+                    <img
+                      src={game.cover}
+                      alt={`Imagem de ${game.title}`}
+                    />
+                  ) : (
+                    <Gamepad2 size={38} />
+                  )}
+
+                  {game.favorite && (
+                    <Heart
+                      size={18}
+                      fill="currentColor"
+                    />
+                  )}
+                </div>
+
+                <div className="home-game__information">
+                  <h3>{game.title}</h3>
+
+                  <span>
+                    {game.consoleName}
+
+                    {game.releaseYear
+                      ? ` • ${game.releaseYear}`
+                      : ""}
+                  </span>
+
+                  <button
+                    type="button"
+                    onClick={(event) => {
+                      event.stopPropagation();
+
+                      handlePlayGame(game);
+                    }}
+                  >
+                    <Play
+                      size={15}
+                      fill="currentColor"
+                    />
+
+                    Jogar
+                  </button>
+                </div>
+              </article>
+            ))}
+          </div>
+        )}
       </section>
-    </div>
+    </main>
   );
 }

@@ -1,9 +1,14 @@
-const { app, BrowserWindow, dialog, ipcMain } = require("electron");
+const { app, BrowserWindow, dialog, ipcMain, protocol,net,} = require("electron");
 const path = require("node:path");
+require("dotenv").config({
+  path: path.join(__dirname, "..", ".env"),
+});
 const fs = require("node:fs/promises");
 const crypto = require("node:crypto");
 const isDevelopment = !app.isPackaged;
 const { spawn } = require("node:child_process");
+
+const { pathToFileURL, } = require("node:url");
 
 function detectConsole(extension) {
   const consolesByExtension = {
@@ -37,6 +42,338 @@ function formatGameTitle(fileName) {
     .replace(/\s+/g, " ")
     .trim();
 }
+ipcMain.handle("rawg:check-configuration", async () => {
+  const apiKey = process.env.RAWG_API_KEY?.trim();
+
+  return {
+    configured: Boolean(apiKey),
+  };
+});
+
+ipcMain.handle(
+  "rawg:search-game",
+  async (_event, gameTitle) => {
+    try {
+      const apiKey =
+        process.env.RAWG_API_KEY?.trim();
+
+      if (!apiKey) {
+        return {
+          success: false,
+          games: [],
+          error: "A chave da RAWG não está configurada.",
+        };
+      }
+
+      if (
+        typeof gameTitle !== "string" ||
+        !gameTitle.trim()
+      ) {
+        return {
+          success: false,
+          games: [],
+          error: "Informe o nome de um jogo.",
+        };
+      }
+
+      const parameters = new URLSearchParams({
+        key: apiKey,
+        search: gameTitle.trim(),
+        search_precise: "true",
+        page_size: "5",
+      });
+
+      const response = await fetch(
+        `https://api.rawg.io/api/games?${parameters.toString()}`,
+      );
+      console.log(
+    "Status:",
+    response.status,
+);
+
+console.log(
+    "Content-Type:",
+    response.headers.get("content-type"),
+);
+
+      if (!response.ok) {
+        console.error(
+          "Erro da RAWG:",
+          response.status,
+          response.statusText,
+        );
+
+        return {
+          success: false,
+          games: [],
+          error: `A RAWG respondeu com o código ${response.status}.`,
+        };
+      }
+
+      const data = await response.json();
+
+      const games = (data.results ?? []).map(
+        (game) => ({
+          id: game.id,
+          name: game.name,
+          released: game.released ?? null,
+          rating: game.rating ?? null,
+          backgroundImage:
+            game.background_image ?? null,
+
+          genres: (game.genres ?? []).map(
+            (genre) => genre.name,
+          ),
+
+          platforms: (
+            game.platforms ?? []
+          ).map(
+            (item) => item.platform.name,
+          ),
+        }),
+      );
+
+      return {
+        success: true,
+        games,
+      };
+    } catch (error) {
+      console.error(
+        "Erro ao pesquisar na RAWG:",
+        error,
+      );
+
+      return {
+        success: false,
+        games: [],
+        error:
+          "Não foi possível pesquisar o jogo na RAWG.",
+      };
+    }
+  },
+  
+);
+
+ipcMain.handle(
+  "library:toggle-favorite",
+  async (_event, gameId) => {
+    try {
+      if (
+        typeof gameId !== "string" ||
+        !gameId.trim()
+      ) {
+        return {
+          success: false,
+          game: null,
+          error: "O jogo informado é inválido.",
+        };
+      }
+
+      const games = await readLibrary();
+
+      const gameIndex = games.findIndex(
+        (game) => game.id === gameId,
+      );
+
+      if (gameIndex === -1) {
+        return {
+          success: false,
+          game: null,
+          error:
+            "O jogo não foi encontrado na biblioteca.",
+        };
+      }
+
+      const updatedGame = {
+        ...games[gameIndex],
+        favorite:
+          !Boolean(games[gameIndex].favorite),
+      };
+
+      const updatedGames = [...games];
+
+      updatedGames[gameIndex] =
+        updatedGame;
+
+      await writeLibrary(updatedGames);
+
+      return {
+        success: true,
+        game: updatedGame,
+      };
+    } catch (error) {
+      console.error(
+        "Erro ao alterar favorito:",
+        error,
+      );
+
+      return {
+        success: false,
+        game: null,
+        error:
+          "Não foi possível alterar o favorito.",
+      };
+    }
+  },
+);
+
+ipcMain.handle(
+  "images:cache-remote",
+  async (
+    _event,
+    imageUrl,
+    category = "covers",
+  ) => {
+    try {
+      if (
+        typeof imageUrl !== "string" ||
+        !imageUrl.trim()
+      ) {
+        return {
+          success: false,
+          mediaUrl: "",
+          fromCache: false,
+          error:
+            "O endereço da imagem é inválido.",
+        };
+      }
+
+      const cachedImage =
+        await cacheRemoteImage(
+          imageUrl.trim(),
+          category,
+        );
+
+      return {
+        success: true,
+        mediaUrl:
+          cachedImage.mediaUrl,
+        fromCache:
+          cachedImage.fromCache,
+      };
+    } catch (error) {
+      console.error(
+        "Erro ao armazenar imagem:",
+        error,
+      );
+
+      return {
+        success: false,
+        mediaUrl: "",
+        fromCache: false,
+        error:
+          error instanceof Error
+            ? error.message
+            : "Não foi possível salvar a imagem.",
+      };
+    }
+  },
+);
+
+ipcMain.handle(
+  "rawg:get-game-details",
+  async (_event, gameId) => {
+    try {
+      const apiKey =
+        process.env.RAWG_API_KEY?.trim();
+
+      if (!apiKey) {
+        return {
+          success: false,
+          game: null,
+          error: "A chave da RAWG não está configurada.",
+        };
+      }
+
+      if (
+        typeof gameId !== "number" ||
+        !Number.isInteger(gameId)
+      ) {
+        return {
+          success: false,
+          game: null,
+          error: "O ID informado é inválido.",
+        };
+      }
+
+      const parameters = new URLSearchParams({
+        key: apiKey,
+      });
+
+      const response = await fetch(
+        `https://api.rawg.io/api/games/${gameId}?${parameters.toString()}`,
+      );
+
+      if (!response.ok) {
+        console.error(
+          "Erro da RAWG ao buscar detalhes:",
+          response.status,
+          response.statusText,
+        );
+
+        return {
+          success: false,
+          game: null,
+          error:
+            `A RAWG respondeu com o código ${response.status}.`,
+        };
+      }
+
+      const data = await response.json();
+
+      const game = {
+        id: data.id,
+        name: data.name,
+        released: data.released ?? null,
+        rating: data.rating ?? null,
+
+        description:
+          data.description_raw ??
+          data.description ??
+          "",
+
+        backgroundImage:
+          data.background_image ?? null,
+
+        additionalImage:
+          data.background_image_additional ?? null,
+
+        genres: (data.genres ?? []).map(
+          (genre) => genre.name,
+        ),
+
+        developers: (data.developers ?? []).map(
+          (developer) => developer.name,
+        ),
+
+        publishers: (data.publishers ?? []).map(
+          (publisher) => publisher.name,
+        ),
+
+        platforms: (data.platforms ?? []).map(
+          (item) => item.platform.name,
+        ),
+      };
+
+      return {
+        success: true,
+        game,
+      };
+    } catch (error) {
+      console.error(
+        "Erro ao buscar detalhes na RAWG:",
+        error,
+      );
+
+      return {
+        success: false,
+        game: null,
+        error:
+          "Não foi possível obter os detalhes do jogo.",
+      };
+    }
+  },
+);
 
 ipcMain.handle("games:select-file", async () => {
   const result = await dialog.showOpenDialog({
@@ -109,6 +446,87 @@ ipcMain.handle("library:list-games", async () => {
       success: false,
       games: [],
       error: "Não foi possível carregar a biblioteca.",
+    };
+  }
+});
+
+ipcMain.handle(
+  "library:delete-games",
+  async (_event, gameIds) => {
+    try {
+      if (!Array.isArray(gameIds)) {
+        return {
+          success: false,
+          deletedCount: 0,
+          error: "A lista de jogos é inválida.",
+        };
+      }
+
+      const validIds = gameIds.filter(
+        (gameId) => typeof gameId === "string",
+      );
+
+      if (validIds.length === 0) {
+        return {
+          success: false,
+          deletedCount: 0,
+          error: "Nenhum jogo foi selecionado.",
+        };
+      }
+
+      const games = await readLibrary();
+      const idsToDelete = new Set(validIds);
+
+      const updatedGames = games.filter(
+        (game) => !idsToDelete.has(game.id),
+      );
+
+      const deletedCount =
+        games.length - updatedGames.length;
+
+      await writeLibrary(updatedGames);
+
+      return {
+        success: true,
+        deletedCount,
+      };
+    } catch (error) {
+      console.error(
+        "Erro ao excluir jogos da biblioteca:",
+        error,
+      );
+
+      return {
+        success: false,
+        deletedCount: 0,
+        error:
+          "Não foi possível excluir os jogos selecionados.",
+      };
+    }
+  },
+);
+
+ipcMain.handle("library:clear", async () => {
+  try {
+    const games = await readLibrary();
+    const deletedCount = games.length;
+
+    await writeLibrary([]);
+
+    return {
+      success: true,
+      deletedCount,
+    };
+  } catch (error) {
+    console.error(
+      "Erro ao limpar biblioteca:",
+      error,
+    );
+
+    return {
+      success: false,
+      deletedCount: 0,
+      error: "Não foi possível limpar a biblioteca.",
     };
   }
 });
@@ -214,8 +632,8 @@ ipcMain.handle("library:add-game", async (_event, importedGame) => {
       players: importedGame.players ?? null,
       description: importedGame.description ?? "",
 
-      cover: "",
-      banner: "",
+      cover: importedGame.cover ?? "",
+      banner: importedGame.banner ?? "",
       description: importedGame.description ?? "",
 
       favorite: false,
@@ -359,8 +777,106 @@ function createWindow() {
     );
   }
 }
-
+protocol.registerSchemesAsPrivileged([
+  {
+    scheme: "nostalcore-media",
+    privileges: {
+      standard: true,
+      secure: true,
+      supportFetchAPI: true,
+      corsEnabled: true,
+    },
+  },
+]);
 app.whenReady().then(() => {
+  protocol.handle(
+    "nostalcore-media",
+    async (request) => {
+      try {
+        const requestUrl =
+          new URL(request.url);
+
+        const pathParts = [
+  requestUrl.hostname,
+  requestUrl.pathname,
+]
+  .filter(Boolean)
+  .join("/");
+
+const relativePath = decodeURIComponent(
+  pathParts,
+).replace(/^\/+/, "");
+
+        const mediaRoot = path.resolve(
+          getMediaDirectory(),
+        );
+
+        const requestedPath = path.resolve(
+          mediaRoot,
+          relativePath,
+        );
+
+        console.log(
+  "[NostalCore] Pasta de mídia:",
+  mediaRoot,
+);
+
+console.log(
+  "[NostalCore] Arquivo solicitado:",
+  requestedPath,
+);
+
+        const isInsideMediaDirectory =
+          requestedPath === mediaRoot ||
+          requestedPath.startsWith(
+            `${mediaRoot}${path.sep}`,
+          );
+
+        if (!isInsideMediaDirectory) {
+          return new Response(
+            "Acesso negado.",
+            { status: 403 },
+          );
+        }
+          try {
+  await fs.access(requestedPath);
+
+  console.log(
+    "[NostalCore] Arquivo encontrado:",
+    requestedPath,
+  );
+} catch {
+  console.error(
+    "[NostalCore] Arquivo NÃO encontrado:",
+    requestedPath,
+  );
+
+  return new Response(
+    "Arquivo não encontrado.",
+    {
+      status: 404,
+    },
+  );
+}
+        return net.fetch(
+          pathToFileURL(
+            requestedPath,
+          ).toString(),
+        );
+      } catch (error) {
+        console.error(
+          "Erro ao carregar mídia local:",
+          error,
+        );
+
+        return new Response(
+          "Imagem não encontrada.",
+          { status: 404 },
+        );
+      }
+    },
+  );
+
   createWindow();
 
   app.on("activate", () => {
@@ -440,15 +956,183 @@ async function readLibrary() {
 }
 
 async function writeLibrary(games) {
-  const libraryFilePath = getLibraryFilePath();
+  const libraryFilePath =
+    getLibraryFilePath();
 
-  await fs.mkdir(path.dirname(libraryFilePath), {
-    recursive: true,
-  });
+  await fs.mkdir(
+    path.dirname(libraryFilePath),
+    {
+      recursive: true,
+    },
+  );
 
   await fs.writeFile(
     libraryFilePath,
     JSON.stringify(games, null, 2),
     "utf8",
   );
+}
+
+function getMediaDirectory() {
+  return path.join(
+    app.getPath("userData"),
+    "media",
+  );
+}
+
+function getImageExtension(contentType) {
+  const extensionsByType = {
+    "image/jpeg": ".jpg",
+    "image/jpg": ".jpg",
+    "image/png": ".png",
+    "image/webp": ".webp",
+    "image/gif": ".gif",
+  };
+
+  return extensionsByType[contentType] ?? ".jpg";
+}
+
+function createMediaUrl(
+  category,
+  fileName,
+) {
+  return (
+    "nostalcore-media:///" +
+    `${category}/${fileName}`
+  );
+}
+
+async function cacheRemoteImage(
+  imageUrl,
+  category,
+) {
+  const parsedUrl = new URL(imageUrl);
+
+  if (parsedUrl.protocol !== "https:") {
+    throw new Error(
+      "A imagem precisa utilizar HTTPS.",
+    );
+  }
+
+  const safeCategories = new Set([
+    "covers",
+    "banners",
+    "screenshots",
+  ]);
+
+  if (!safeCategories.has(category)) {
+    throw new Error(
+      "A categoria da imagem é inválida.",
+    );
+  }
+
+  const response = await fetch(imageUrl);
+
+  if (!response.ok) {
+    throw new Error(
+      `Falha ao baixar imagem: ${response.status}`,
+    );
+  }
+
+  const contentType = (
+    response.headers.get("content-type") ?? ""
+  )
+    .split(";")[0]
+    .trim()
+    .toLowerCase();
+
+  if (!contentType.startsWith("image/")) {
+    throw new Error(
+      "O endereço não retornou uma imagem.",
+    );
+  }
+
+  const extension =
+    getImageExtension(contentType);
+
+  const fileHash = crypto
+    .createHash("sha256")
+    .update(imageUrl)
+    .digest("hex")
+    .slice(0, 32);
+
+  const fileName =
+    `${fileHash}${extension}`;
+
+  const destinationDirectory = path.join(
+    getMediaDirectory(),
+    category,
+  );
+
+  const destinationPath = path.join(
+    destinationDirectory,
+    fileName,
+  );
+  console.log(
+  "[NostalCore] Imagem será salva em:",
+  destinationPath,
+);
+
+    await fs.mkdir(destinationDirectory, {
+    recursive: true,
+  });
+
+  try {
+    await fs.access(destinationPath);
+
+    console.log(
+      "[NostalCore] Imagem encontrada no cache:",
+      destinationPath,
+    );
+
+    return {
+      fileName,
+      filePath: destinationPath,
+      mediaUrl: createMediaUrl(
+        category,
+        fileName,
+      ),
+      fromCache: true,
+    };
+  } catch {
+    console.log(
+      "[NostalCore] Imagem será salva em:",
+      destinationPath,
+    );
+  }
+console.log("Baixando imagem...");
+  const arrayBuffer =
+    await response.arrayBuffer();
+console.log(
+    "Imagem baixada:",
+    arrayBuffer.byteLength,
+);
+  const maximumSize =
+    15 * 1024 * 1024;
+
+  if (arrayBuffer.byteLength > maximumSize) {
+    throw new Error(
+      "A imagem ultrapassa o limite de 15 MB.",
+    );
+  }
+
+  await fs.writeFile(
+    destinationPath,
+    Buffer.from(arrayBuffer),
+  );
+
+  console.log(
+    "[NostalCore] Imagem salva com sucesso:",
+    destinationPath,
+  );
+
+  return {
+    fileName,
+    filePath: destinationPath,
+    mediaUrl: createMediaUrl(
+      category,
+      fileName,
+    ),
+    fromCache: false,
+  };
 }

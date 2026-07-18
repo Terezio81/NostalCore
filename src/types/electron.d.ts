@@ -15,6 +15,10 @@ publisher?: string | null;
 genres?: string[];
 players?: number | null;
 description?: string;
+
+cover?: string;
+banner?: string;
+
 };
 
 type LibraryGame = ImportedGame & {
@@ -100,6 +104,112 @@ type LaunchGameResult =
       error: string;
     };
 
+    type RawgConfigurationResult = {
+  configured: boolean;
+};
+
+type RawgSearchGame = {
+  id: number;
+  name: string;
+  released: string | null;
+  rating: number | null;
+  backgroundImage: string | null;
+  genres: string[];
+  platforms: string[];
+};
+
+type RawgSearchResult =
+  | {
+      success: true;
+      games: RawgSearchGame[];
+      error?: never;
+    }
+  | {
+      success: false;
+      games: RawgSearchGame[];
+      error: string;
+    };
+
+    type RawgGameDetails = {
+  id: number;
+  name: string;
+  released: string | null;
+  rating: number | null;
+  description: string;
+  backgroundImage: string | null;
+  additionalImage: string | null;
+  genres: string[];
+  developers: string[];
+  publishers: string[];
+  platforms: string[];
+};
+
+type RawgGameDetailsResult =
+  | {
+      success: true;
+      game: RawgGameDetails;
+      error?: never;
+    }
+  | {
+      success: false;
+      game: null;
+      error: string;
+    };
+    type DeleteGamesResult =
+  | {
+      success: true;
+      deletedCount: number;
+      error?: never;
+    }
+  | {
+      success: false;
+      deletedCount: number;
+      error: string;
+    };
+
+type ClearLibraryResult =
+  | {
+      success: true;
+      deletedCount: number;
+      error?: never;
+    }
+  | {
+      success: false;
+      deletedCount: number;
+      error: string;
+    };
+
+    type CacheImageCategory =
+  | "covers"
+  | "banners"
+  | "screenshots";
+
+type CacheRemoteImageResult =
+  | {
+      success: true;
+      mediaUrl: string;
+      fromCache: boolean;
+      error?: never;
+    }
+  | {
+      success: false;
+      mediaUrl: string;
+      fromCache: boolean;
+      error: string;
+    };
+
+    type ToggleFavoriteResult =
+  | {
+      success: true;
+      game: LibraryGame;
+      error?: never;
+    }
+  | {
+      success: false;
+      game: null;
+      error: string;
+    };
+
 declare global {
   interface Window {
     nostalcore: {
@@ -115,6 +225,12 @@ declare global {
       listGames: () => Promise<ListGamesResult>;
       getEmulatorSettings:
   () => Promise<EmulatorSettingsResult>;
+  deleteGames: (
+  gameIds: string[],
+) => Promise<DeleteGamesResult>;
+
+clearLibrary:
+  () => Promise<ClearLibraryResult>;
 
 selectEmulator: (
   emulatorId: string,
@@ -123,7 +239,30 @@ selectEmulator: (
 launchGame: (
   gameId: string,
 ) => Promise<LaunchGameResult>;
+
+checkRawgConfiguration:
+  () => Promise<RawgConfigurationResult>;
+
+  searchRawgGame: (
+  gameTitle: string,
+) => Promise<RawgSearchResult>;
+
+getRawgGameDetails: (
+  gameId: number,
+) => Promise<RawgGameDetailsResult>;
+
+cacheRemoteImage: (
+  imageUrl: string,
+  category: CacheImageCategory,
+) => Promise<CacheRemoteImageResult>;
+
+toggleFavorite: (
+  gameId: string,
+) => Promise<ToggleFavoriteResult>;
+
+
     };
+    
   }
 }
 

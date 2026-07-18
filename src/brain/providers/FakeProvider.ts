@@ -16,7 +16,10 @@ const FAKE_DATABASE: GameMetadata[] = [
     players: 1,
     description:
       "Mega Man X é um jogo de ação e plataforma ambientado em um futuro dominado por robôs avançados.",
-  },
+  cover: "",
+banner: "",
+  
+    },
   {
     title: "Super Mario World",
     consoleName: "Super Nintendo",
@@ -27,7 +30,10 @@ const FAKE_DATABASE: GameMetadata[] = [
     players: 2,
     description:
       "Mario e Luigi exploram Dinosaur Land em uma aventura de plataforma ao lado de Yoshi.",
-  },
+ cover: "",
+banner: "",
+ 
+    },
   {
     title: "Donkey Kong Country",
     consoleName: "Super Nintendo",
@@ -38,7 +44,10 @@ const FAKE_DATABASE: GameMetadata[] = [
     players: 2,
     description:
       "Donkey Kong e Diddy Kong atravessam a Ilha DK para recuperar sua reserva de bananas.",
-  },
+ cover: "",
+banner: "",
+ 
+    },
   {
   title: "Aladdin",
   consoleName: "Super Nintendo",
@@ -49,7 +58,10 @@ const FAKE_DATABASE: GameMetadata[] = [
   players: 1,
   description:
     "Aladdin é um jogo de ação e plataforma inspirado no filme da Disney, acompanhando sua aventura pelas ruas de Agrabah.",
-},
+cover: "",
+banner: "",
+
+  },
 ];
 
 function normalizeText(value: string): string {
