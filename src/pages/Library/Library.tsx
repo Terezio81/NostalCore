@@ -7,12 +7,18 @@ import {
   Search,
 } from "lucide-react";
 
-import { useEffect, useState } from "react";
-import type { LibraryGame } from "../../types/Game";
-import "./Library.css";
+import {
+  useEffect,
+  useMemo,
+  useState,
+} from "react";
 import {
   useNavigate,
+  useSearchParams,
 } from "react-router-dom";
+import type { LibraryGame } from "../../types/Game";
+import "./Library.css";
+
 
 export default function Library() {
   const [games, setGames] = useState<LibraryGame[]>([]);
@@ -20,6 +26,12 @@ export default function Library() {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState("");
   const navigate = useNavigate();
+
+  const [searchParams, setSearchParams] =
+  useSearchParams();
+
+const selectedConsole =
+  searchParams.get("console");
 
   const [selectedGameIds, setSelectedGameIds] =
   useState<string[]>([]);
@@ -226,14 +238,34 @@ async function handleClearLibrary() {
     };
   }, []);
 
-  const filteredGames = games.filter((game) => {
-    const normalizedSearch = search.toLowerCase().trim();
+  const filteredGames = useMemo(() => {
+  const normalizedSearch =
+    search.trim().toLowerCase();
+
+  return games.filter((game) => {
+    const matchesSearch =
+      !normalizedSearch ||
+      game.title
+        .toLowerCase()
+        .includes(normalizedSearch) ||
+      game.consoleName
+        .toLowerCase()
+        .includes(normalizedSearch);
+
+    const matchesConsole =
+      !selectedConsole ||
+      game.consoleName === selectedConsole;
 
     return (
-      game.title.toLowerCase().includes(normalizedSearch) ||
-      game.consoleName.toLowerCase().includes(normalizedSearch)
+      matchesSearch &&
+      matchesConsole
     );
   });
+}, [
+  games,
+  search,
+  selectedConsole,
+]);
 
   return (
     <div className="library-page">
@@ -321,6 +353,30 @@ async function handleClearLibrary() {
           />
         </label>
       </header>
+
+{selectedConsole && (
+        <section className="library-console-filter">
+          <div>
+            <span>Console selecionado</span>
+
+            <strong>{selectedConsole}</strong>
+          </div>
+
+          <button
+            type="button"
+            onClick={() => {
+              const nextParams =
+                new URLSearchParams(searchParams);
+
+              nextParams.delete("console");
+
+              setSearchParams(nextParams);
+            }}
+          >
+            Mostrar todos
+          </button>
+        </section>
+      )}
 
       {isLoading && (
         <div className="library-page__message">

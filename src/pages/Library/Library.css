@@ -560,3 +560,62 @@
   transform: translateY(-1px);
   filter: brightness(1.08);
 }
+
+.library-console-filter {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+
+  margin-bottom: 24px;
+  padding: 18px 20px;
+
+  border: 1px solid var(--border);
+  border-radius: 14px;
+
+  background: var(--card);
+}
+
+.library-console-filter div {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.library-console-filter span {
+  color: var(--text-secondary);
+
+  font-size: 12px;
+  font-weight: 700;
+
+  letter-spacing: 0.8px;
+  text-transform: uppercase;
+}
+
+.library-console-filter strong {
+  font-size: 20px;
+}
+
+.library-console-filter button {
+  min-height: 40px;
+
+  padding: 0 16px;
+
+  border: 1px solid var(--border);
+  border-radius: 9px;
+
+  background: transparent;
+  color: var(--text);
+
+  font: inherit;
+  font-weight: 700;
+
+  cursor: pointer;
+
+  transition: 0.2s;
+}
+
+.library-console-filter button:hover {
+  border-color: var(--primary);
+  color: var(--primary-light);
+}
