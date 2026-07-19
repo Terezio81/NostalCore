@@ -714,21 +714,71 @@ ipcMain.handle("games:launch", async (_event, gameId) => {
       };
     }
 
-    const emulatorProcess = spawn(
-      emulator.executablePath,
-      [game.filePath],
-      {
-        detached: true,
-        stdio: "ignore",
-      },
-    );
+    const sessionStartedAt = Date.now();
 
-    emulatorProcess.unref();
+const emulatorProcess = spawn(
+  emulator.executablePath,
+  [game.filePath],
+  {
+    detached: false,
+    stdio: "ignore",
+  },
+);
 
 game.lastPlayedAt = new Date().toISOString();
 game.playCount = (game.playCount ?? 0) + 1;
 
 await writeLibrary(games);
+
+emulatorProcess.once("close", async () => {
+  try {
+    const sessionEndedAt = Date.now();
+
+    const sessionMinutes = Math.max(
+      1,
+      Math.round(
+        (sessionEndedAt - sessionStartedAt) /
+          (1000 * 60),
+      ),
+    );
+
+    const updatedGames = await readLibrary();
+
+    const updatedGame = updatedGames.find(
+      (libraryGame) =>
+        libraryGame.id === gameId,
+    );
+
+    if (!updatedGame) {
+      console.warn(
+        "Jogo não encontrado ao salvar o tempo da sessão:",
+        gameId,
+      );
+
+      return;
+    }
+
+    updatedGame.playTimeMinutes =
+      (updatedGame.playTimeMinutes ?? 0) +
+      sessionMinutes;
+
+    await writeLibrary(updatedGames);
+    for (const window of BrowserWindow.getAllWindows()) {
+  window.webContents.send(
+    "nostalcore:library-updated",
+  );
+}
+
+    console.log(
+      `Sessão de "${updatedGame.title}" registrada: ${sessionMinutes} min.`,
+    );
+  } catch (error) {
+    console.error(
+      "Erro ao registrar tempo da sessão:",
+      error,
+    );
+  }
+});
 
 return {
   success: true,

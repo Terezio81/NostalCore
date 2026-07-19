@@ -1,12 +1,17 @@
 import {
   ArrowLeft,
   CalendarDays,
+  Clock3,
   Gamepad2,
   Heart,
   MapPin,
   Play,
   Users,
 } from "lucide-react";
+
+import {
+  formatPlayTime,
+} from "../../brain/utils/formatPlayTime";
 
 import {
   useEffect,
@@ -387,6 +392,20 @@ export default function GameDetails() {
                 </span>
               </div>
             )}
+
+            <div>
+  <Clock3 size={18} />
+
+  <span>
+    <small>Tempo jogado</small>
+
+    <strong>
+      {formatPlayTime(
+        game.playTimeMinutes,
+      )}
+    </strong>
+  </span>
+</div>
 
             {game.players && (
               <div>

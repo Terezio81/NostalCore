@@ -8,6 +8,10 @@ import {
   Star,
 } from "lucide-react";
 
+import { StatisticsService } from "../../brain/statistics/StatisticsService";
+import { RecommendationService } from "../../brain/recommendations/RecommendationService";
+import { formatPlayTime } from "../../brain/utils/formatPlayTime";
+
 import {
   useEffect,
   useMemo,
@@ -21,45 +25,69 @@ import type { LibraryGame } from "../../types/Game";
 
 import "./Home.css";
 
-function formatPlayTime(minutes: number): string {
-  if (!minutes || minutes <= 0) {
+function formatLastPlayed(
+  lastPlayedAt: string | null | undefined,
+): string {
+  if (!lastPlayedAt) {
     return "Ainda não jogado";
   }
 
-  const hours = Math.floor(minutes / 60);
-  const remainingMinutes = minutes % 60;
+  const lastPlayedDate = new Date(
+    lastPlayedAt,
+  );
 
-  if (hours === 0) {
-    return `${remainingMinutes} min jogados`;
+  if (
+    Number.isNaN(
+      lastPlayedDate.getTime(),
+    )
+  ) {
+    return "Data desconhecida";
   }
 
-  if (remainingMinutes === 0) {
-    return `${hours}h jogadas`;
+  const now = new Date();
+
+  const differenceInMilliseconds =
+    now.getTime() -
+    lastPlayedDate.getTime();
+
+  const differenceInMinutes =
+    Math.floor(
+      differenceInMilliseconds /
+        (1000 * 60),
+    );
+
+  if (differenceInMinutes < 1) {
+    return "Jogado agora";
   }
 
-  return `${hours}h ${remainingMinutes}min jogados`;
-}
-
-function formatLastPlayed(
-  lastPlayedAt: string | null,
-): string {
-  if (!lastPlayedAt) {
-    return "Você ainda não iniciou este jogo.";
+  if (differenceInMinutes < 60) {
+    return `Jogado há ${differenceInMinutes} min`;
   }
 
-  const date = new Date(lastPlayedAt);
+  const differenceInHours =
+    Math.floor(
+      differenceInMinutes / 60,
+    );
 
-  if (Number.isNaN(date.getTime())) {
-    return "Última sessão registrada.";
+  if (differenceInHours < 24) {
+    return `Jogado há ${differenceInHours}h`;
   }
 
-  return `Última sessão em ${date.toLocaleDateString(
+  const differenceInDays =
+    Math.floor(
+      differenceInHours / 24,
+    );
+
+  if (differenceInDays === 1) {
+    return "Jogado ontem";
+  }
+
+  if (differenceInDays < 7) {
+    return `Jogado há ${differenceInDays} dias`;
+  }
+
+  return `Última sessão em ${lastPlayedDate.toLocaleDateString(
     "pt-BR",
-    {
-      day: "2-digit",
-      month: "2-digit",
-      year: "numeric",
-    },
   )}`;
 }
 
@@ -130,19 +158,28 @@ export default function Home() {
     };
   }, []);
 
-  const uniqueConsoleCount = useMemo(() => {
-    return new Set(
-      games
-        .map((game) => game.consoleName)
-        .filter(Boolean),
-    ).size;
-  }, [games]);
+  const statistics = useMemo(() => {
+  return StatisticsService.build(games);
+}, [games]);
 
-  const favoriteCount = useMemo(() => {
-    return games.filter(
-      (game) => game.favorite,
-    ).length;
-  }, [games]);
+const recommendations = useMemo(() => {
+  return {
+    mostPlayedGame:
+      RecommendationService.getMostPlayed(
+        games,
+      ) ?? null,
+
+    lastPlayedGame:
+      RecommendationService.getLastPlayed(
+        games,
+      ) ?? null,
+
+    favoriteConsole:
+      RecommendationService.getFavoriteConsole(
+        games,
+      ),
+  };
+}, [games]);
 
   const continueGame = useMemo(() => {
     return [...games]
@@ -455,12 +492,12 @@ export default function Home() {
           <Library size={22} />
 
           <div>
-            <strong>{games.length}</strong>
+            <strong>{statistics.totalGames}</strong>
 
             <span>
-              {games.length === 1
-                ? "Jogo na biblioteca"
-                : "Jogos na biblioteca"}
+              {statistics.totalGames === 1
+              ? "Jogo na biblioteca"
+              : "Jogos na biblioteca"}
             </span>
           </div>
         </article>
@@ -470,13 +507,13 @@ export default function Home() {
 
           <div>
             <strong>
-              {uniqueConsoleCount}
+            {statistics.totalConsoles}
             </strong>
 
             <span>
-              {uniqueConsoleCount === 1
-                ? "Console cadastrado"
-                : "Consoles cadastrados"}
+              {statistics.totalConsoles === 1
+              ? "Console cadastrado"
+              : "Consoles cadastrados"}
             </span>
           </div>
         </article>
@@ -485,16 +522,77 @@ export default function Home() {
           <Star size={22} />
 
           <div>
-            <strong>{favoriteCount}</strong>
+            <strong>
+            {statistics.totalFavorites}
+            </strong>
 
             <span>
-              {favoriteCount === 1
-                ? "Jogo favorito"
-                : "Jogos favoritos"}
+              {statistics.totalFavorites === 1
+              ? "Jogo favorito"
+              : "Jogos favoritos"}
             </span>
           </div>
         </article>
+
+        <article>
+        <Clock3 size={22} />
+
+          <div>
+          <strong>
+            {formatPlayTime(
+            statistics.totalPlayTimeMinutes,
+            )}
+            </strong>
+
+    <span>Tempo total jogado</span>
+  </div>
+</article>
+
+        <article>
+  <Clock3 size={22} />
+
+  <div>
+    <strong>
+      {formatPlayTime(
+        statistics.totalPlayTimeMinutes,
+      )}
+    </strong>
+
+    <span>Tempo total jogado</span>
+  </div>
+</article>
+
       </section>
+
+      <section className="home-insights">
+  <article>
+    <span>Mais jogado</span>
+
+    <strong>
+      {recommendations.mostPlayedGame?.title ??
+        "Nenhum jogo jogado"}
+    </strong>
+  </article>
+
+  <article>
+    <span>Última sessão</span>
+
+    <strong>
+      {recommendations.lastPlayedGame?.title ??
+        "Nenhuma sessão registrada"}
+    </strong>
+  </article>
+
+  <article>
+    <span>Console dominante</span>
+
+    <strong>
+      {recommendations.favoriteConsole
+        .consoleName ||
+        "Nenhum console"}
+    </strong>
+  </article>
+</section>
 
       <section className="home-recent">
         <header>

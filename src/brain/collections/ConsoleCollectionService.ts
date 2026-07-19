@@ -11,81 +11,136 @@ export class ConsoleCollectionService {
     >();
 
     for (const game of games) {
-      const key = game.consoleName;
+      const consoleName =
+        game.consoleName.trim();
 
-      const current =
-        groups.get(key) ?? [];
+      const currentGames =
+        groups.get(consoleName) ?? [];
 
-      current.push(game);
+      currentGames.push(game);
 
-      groups.set(key, current);
+      groups.set(
+        consoleName,
+        currentGames,
+      );
     }
 
-    return Array.from(groups.entries()).map(
-      ([consoleName, consoleGames]) => {
-        const favoriteGames =
-          consoleGames.filter(
-            (game) => game.favorite,
-          ).length;
+    const collections: ConsoleCollection[] =
+      Array.from(groups.entries()).map(
+        ([consoleName, consoleGames]) => {
+          const favoriteGames =
+            consoleGames.filter(
+              (game) => game.favorite,
+            ).length;
 
-        const lastPlayedGame =
-          [...consoleGames]
-            .filter(
-              (game) => game.lastPlayedAt,
-            )
-            .sort((a, b) => {
-              return (
-                new Date(
-                  b.lastPlayedAt ?? 0,
-                ).getTime() -
-                new Date(
+          const lastPlayedGame =
+            [...consoleGames]
+              .filter(
+                (game) =>
+                  Boolean(game.lastPlayedAt),
+              )
+              .sort((a, b) => {
+                const aDate = new Date(
                   a.lastPlayedAt ?? 0,
-                ).getTime()
-              );
-            })[0] ?? null;
+                ).getTime();
 
-        const latestImportedGame =
-          [...consoleGames]
-            .sort((a, b) => {
-              return (
-                new Date(
-                  b.importedAt,
-                ).getTime() -
-                new Date(
+                const bDate = new Date(
+                  b.lastPlayedAt ?? 0,
+                ).getTime();
+
+                return bDate - aDate;
+              })[0] ?? null;
+
+          const latestImportedGame =
+            [...consoleGames].sort(
+              (a, b) => {
+                const aDate = new Date(
                   a.importedAt,
-                ).getTime()
-              );
-            })[0] ?? null;
+                ).getTime();
 
-        return {
-          id: consoleName
-            .toLowerCase()
-            .replace(/\s+/g, "-"),
+                const bDate = new Date(
+                  b.importedAt,
+                ).getTime();
 
-          name: consoleName,
+                return bDate - aDate;
+              },
+            )[0] ?? null;
 
-          games: consoleGames,
+          return {
+            id: consoleName
+              .toLowerCase()
+              .normalize("NFD")
+              .replace(
+                /[\u0300-\u036f]/g,
+                "",
+              )
+              .replace(
+                /[^a-z0-9]+/g,
+                "-",
+              )
+              .replace(
+                /^-+|-+$/g,
+                "",
+              ),
 
-          totalGames:
-            consoleGames.length,
+            name: consoleName,
 
-          favoriteGames,
+            games: consoleGames,
 
-          lastPlayedGame,
+            totalGames:
+              consoleGames.length,
 
-          latestImportedGame,
+            favoriteGames,
 
-          banner:
-            lastPlayedGame?.banner ??
-            latestImportedGame?.banner ??
-            null,
+            lastPlayedGame,
 
-          cover:
-            lastPlayedGame?.cover ??
-            latestImportedGame?.cover ??
-            null,
-        };
-      },
-    );
+            latestImportedGame,
+
+            banner:
+              lastPlayedGame?.banner ??
+              latestImportedGame?.banner ??
+              null,
+
+            cover:
+              lastPlayedGame?.cover ??
+              latestImportedGame?.cover ??
+              null,
+          };
+        },
+      );
+
+    return collections.sort((a, b) => {
+      const aLastPlayed =
+        a.lastPlayedGame?.lastPlayedAt
+          ? new Date(
+              a.lastPlayedGame.lastPlayedAt,
+            ).getTime()
+          : 0;
+
+      const bLastPlayed =
+        b.lastPlayedGame?.lastPlayedAt
+          ? new Date(
+              b.lastPlayedGame.lastPlayedAt,
+            ).getTime()
+          : 0;
+
+      if (aLastPlayed !== bLastPlayed) {
+        return bLastPlayed - aLastPlayed;
+      }
+
+      if (
+        a.totalGames !== b.totalGames
+      ) {
+        return (
+          b.totalGames -
+          a.totalGames
+        );
+      }
+
+      return a.name.localeCompare(
+        b.name,
+        "pt-BR",
+      );
+    });
   }
 }
