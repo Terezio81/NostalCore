@@ -14,6 +14,10 @@ import {
 } from "../../brain/utils/formatPlayTime";
 
 import {
+  SessionStatisticsService,
+} from "../../brain/statistics/SessionStatisticsService";
+
+import {
   useEffect,
   useState,
 } from "react";
@@ -231,8 +235,10 @@ export default function GameDetails() {
           Voltar para a biblioteca
         </button>
       </main>
-    );
+    );    
   }
+const sessionStatistics =
+  SessionStatisticsService.build(game);
 
   const bannerImage =
     game.banner || game.cover;
@@ -403,6 +409,71 @@ export default function GameDetails() {
       {formatPlayTime(
         game.playTimeMinutes,
       )}
+    </strong>
+  </span>
+</div>
+
+<div>
+  <Clock3 size={18} />
+
+  <span>
+    <small>Última sessão</small>
+
+    <strong>
+      {sessionStatistics.latestSession
+        ? formatPlayTime(
+            sessionStatistics
+              .latestSession
+              .durationMinutes,
+          )
+        : "Nenhuma sessão registrada"}
+    </strong>
+  </span>
+</div>
+
+<div>
+  <Gamepad2 size={18} />
+
+  <span>
+    <small>Total de sessões</small>
+
+    <strong>
+      {sessionStatistics.totalSessions}
+    </strong>
+  </span>
+</div>
+
+<div>
+  <Clock3 size={18} />
+
+  <span>
+    <small>Média por sessão</small>
+
+    <strong>
+      {sessionStatistics.totalSessions > 0
+        ? formatPlayTime(
+            sessionStatistics
+              .averageMinutes,
+          )
+        : "Ainda sem média"}
+    </strong>
+  </span>
+</div>
+
+<div>
+  <Clock3 size={18} />
+
+  <span>
+    <small>Maior sessão</small>
+
+    <strong>
+      {sessionStatistics.longestSession
+        ? formatPlayTime(
+            sessionStatistics
+              .longestSession
+              .durationMinutes,
+          )
+        : "Nenhuma sessão registrada"}
     </strong>
   </span>
 </div>

@@ -1,3 +1,11 @@
+export interface GamePlaySession {
+  startedAt: string;
+
+  endedAt: string;
+
+  durationMinutes: number;
+}
+
 export type LibraryGame = {
   id: string;
   title: string;
@@ -16,11 +24,13 @@ export type LibraryGame = {
   playTimeMinutes: number;
   playCount: number;
   lastPlayedAt: string | null;
+  playSessions?: GamePlaySession[];
+  
   importedAt: string;
 
   releaseYear?: number | null;
-developer?: string | null;
-publisher?: string | null;
-genres?: string[];
-players?: number | null;
+  developer?: string | null;
+  publisher?: string | null;
+  genres?: string[];
+  players?: number | null;
 };

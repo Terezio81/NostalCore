@@ -762,7 +762,23 @@ emulatorProcess.once("close", async () => {
       (updatedGame.playTimeMinutes ?? 0) +
       sessionMinutes;
 
+      updatedGame.playSessions = [
+  ...(updatedGame.playSessions ?? []),
+  {
+    startedAt: new Date(
+      sessionStartedAt,
+    ).toISOString(),
+
+    endedAt: new Date(
+      sessionEndedAt,
+    ).toISOString(),
+
+    durationMinutes: sessionMinutes,
+  },
+];
+
     await writeLibrary(updatedGames);
+
     for (const window of BrowserWindow.getAllWindows()) {
   window.webContents.send(
     "nostalcore:library-updated",
