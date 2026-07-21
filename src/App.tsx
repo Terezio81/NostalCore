@@ -7,6 +7,7 @@ import Consoles from "./pages/Consoles/Consoles";
 import Favorites from "./pages/Favorites/Favorites";
 import Settings from "./pages/Settings/Settings";
 import GameDetails from "./pages/GameDetails/GameDetails";
+import Achievements from "./pages/Achievements/Achievements";
 
 function App() {
   return (
@@ -18,6 +19,7 @@ function App() {
         <Route path="/favoritos" element={<Favorites />} />
         <Route path="/configuracoes" element={<Settings />} />
       <Route path="/jogo/:gameId" element={<GameDetails />}/>
+      <Route path="/conquistas"element={<Achievements />}/>
       </Routes>
     </MainLayout>
   );

@@ -2,6 +2,7 @@
 import {
   Gamepad2,
   Heart,
+  Trophy,
   House,
   Library,
   Settings,
@@ -60,6 +61,19 @@ export default function Sidebar() {
         <NavLink to="/favoritos">
           <Heart size={22} />
           <span>Favoritos</span>
+        </NavLink>
+
+        <NavLink
+        to="/conquistas"
+        className={({ isActive }) =>
+        isActive
+        ? "sidebar-link sidebar-link--active"
+        : "sidebar-link"
+        }
+        >
+        <Trophy size={20} />
+
+        <span>Conquistas</span>
         </NavLink>
 
         <NavLink to="/configuracoes">

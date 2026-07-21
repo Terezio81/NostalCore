@@ -18,6 +18,10 @@ import {
 } from "../../brain/statistics/SessionStatisticsService";
 
 import {
+    formatSessionDate,
+} from "../../brain/utils/formatSessionDate";
+
+import {
   useEffect,
   useState,
 } from "react";
@@ -589,11 +593,39 @@ const sessionStatistics =
                       </span>
                     ),
                   )}
+                  
                 </div>
               </section>
             )}
+            <section className="game-session-history">
+    <h2>Histórico de Sessões</h2>
+
+    {[...(game.playSessions ?? [])]
+        .reverse()
+        .map((session, index) => (
+            <div
+                key={index}
+                className="session-card"
+            >
+                <strong>
+                    {formatSessionDate(
+                        session.endedAt,
+                    )}
+                </strong>
+
+                <p>
+                    Jogou por{" "}
+                    {formatPlayTime(
+                        session.durationMinutes,
+                    )}
+                </p>
+            </div>
+        ))}
+</section>
         </div>
       </section>
     </main>
+    
   );
+  
 }
